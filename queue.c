@@ -40,7 +40,7 @@ int number_of_moves(struct game_state start) {
         dequeue(NULL);  // Clear stale queue
     }
 
-    #define MAX_STATES (1UL << 28)
+    #define MAX_STATES (1UL << 30)
     bool *visited = calloc(MAX_STATES, sizeof(bool));
     if (!visited) return -1;
 
