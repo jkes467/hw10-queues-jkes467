@@ -4,7 +4,7 @@
 #include "tile_game.h"
 #include "linked_list.h"
 
-#define MAX_STATES (1UL << 28) 
+#define MAX_STATES (1UL << 28)
 
 static struct linked_list internal_list = { .head = NULL };
 
@@ -40,18 +40,16 @@ bool queue_is_empty() {
     return internal_list.head == NULL;
 }
 
-// Hash function to spread out serialized keys better
 static inline size_t hash_key(uint64_t serial) {
     return (serial ^ (serial >> 28)) % MAX_STATES;
 }
 
 int number_of_moves(struct game_state start) {
-    // Clear queue
     while (!queue_is_empty()) {
         dequeue(NULL);
     }
 
-    bool *visited = calloc(MAX_STATES, sizeof(bool));
+    uint64_t *visited = calloc(MAX_STATES, sizeof(uint64_t));
     if (!visited) return -1;
 
     start.num_steps = 0;
@@ -60,7 +58,7 @@ int number_of_moves(struct game_state start) {
     uint64_t start_serial = serialize(hashable_start);
     size_t start_idx = hash_key(start_serial);
 
-    visited[start_idx] = true;
+    visited[start_idx] = start_serial;
     enqueue(NULL, start);
 
     const int dr[4] = {-1, 1, 0, 0};
@@ -92,8 +90,8 @@ int number_of_moves(struct game_state start) {
                 uint64_t next_serial = serialize(tmp);
                 size_t next_idx = hash_key(next_serial);
 
-                if (!visited[next_idx]) {
-                    visited[next_idx] = true;
+                if (visited[next_idx] != next_serial) {
+                    visited[next_idx] = next_serial;
                     enqueue(NULL, next);
                 }
             }
