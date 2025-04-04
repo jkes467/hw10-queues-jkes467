@@ -9,11 +9,16 @@
 static struct linked_list internal_list = { .head = NULL };
 
 bool is_goal_state(struct game_state *state) {
-    int val = 1;
+    int expected = 1;
     for (int row = 0; row < 4; row++) {
         for (int col = 0; col < 4; col++) {
-            if (row == 3 && col == 3) return state->tiles[row][col] == 0;
-            if (state->tiles[row][col] != val++) return false;
+            if (row == 3 && col == 3) {
+                if (state->tiles[row][col] != 0)
+                    return false;
+            } else {
+                if (state->tiles[row][col] != expected++)
+                    return false;
+            }
         }
     }
     return true;
