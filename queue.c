@@ -74,21 +74,22 @@ int number_of_moves(struct game_state start) {
         for (int dir = 0; dir < 4; dir++) {
             int r = cur.empty_row + dr[dir];
             int c = cur.empty_col + dc[dir];
-
+        
             if (r >= 0 && r < 4 && c >= 0 && c < 4) {
                 struct game_state next = cur;
-
+        
                 next.tiles[cur.empty_row][cur.empty_col] = cur.tiles[r][c];
                 next.tiles[r][c] = 0;
                 next.empty_row = r;
                 next.empty_col = c;
-
+                next.num_steps = cur_depth + 1;
+        
                 uint64_t next_serial = serialize(next);
                 size_t next_idx = next_serial % MAX_STATES;
-
+        
                 if (!visited[next_idx]) {
                     visited[next_idx] = true;
-                    depth[next_idx] = cur_depth + 1;
+                    depth[next_idx] = next.num_steps;
                     enqueue(NULL, next);
                 }
             }
