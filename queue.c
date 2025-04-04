@@ -4,7 +4,7 @@
 #include "tile_game.h"
 #include "linked_list.h"
 
-#define MAX_STATES (1UL << 28)  // 256 million entries, ~256MB
+#define MAX_STATES (1UL << 28) 
 
 static struct linked_list internal_list = { .head = NULL };
 
@@ -25,8 +25,8 @@ bool is_goal_state(struct game_state *state) {
 }
 
 void enqueue(struct queue *q, struct game_state state) {
-    (void)q;  // suppress unused parameter warning
-    uint64_t encoded = serialize(state);
+    (void)q;
+    size_t encoded = serialize(state);
     insert_at_tail(&internal_list, encoded);
 }
 
@@ -40,19 +40,26 @@ bool queue_is_empty() {
     return internal_list.head == NULL;
 }
 
+// Hash function to spread out serialized keys better
+static inline size_t hash_key(uint64_t serial) {
+    return (serial ^ (serial >> 28)) % MAX_STATES;
+}
+
 int number_of_moves(struct game_state start) {
+    // Clear queue
     while (!queue_is_empty()) {
-        dequeue(NULL);  // Clear stale queue
+        dequeue(NULL);
     }
 
-    #define MAX_STATES (1UL << 28)
     bool *visited = calloc(MAX_STATES, sizeof(bool));
     if (!visited) return -1;
 
-    uint64_t start_serial = serialize((struct game_state){ .tiles = {{0}}, .empty_row = start.empty_row, .empty_col = start.empty_col, .num_steps = 0 });
-    size_t start_idx = start_serial % MAX_STATES;
-
     start.num_steps = 0;
+    struct game_state hashable_start = start;
+    hashable_start.num_steps = 0;
+    uint64_t start_serial = serialize(hashable_start);
+    size_t start_idx = hash_key(start_serial);
+
     visited[start_idx] = true;
     enqueue(NULL, start);
 
@@ -81,9 +88,9 @@ int number_of_moves(struct game_state start) {
                 next.num_steps = cur.num_steps + 1;
 
                 struct game_state tmp = next;
-                tmp.num_steps = 0;  // Ensure we serialize only layout
+                tmp.num_steps = 0;
                 uint64_t next_serial = serialize(tmp);
-                size_t next_idx = next_serial % MAX_STATES;
+                size_t next_idx = hash_key(next_serial);
 
                 if (!visited[next_idx]) {
                     visited[next_idx] = true;
