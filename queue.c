@@ -36,11 +36,12 @@ bool queue_is_empty() {
 }
 
 int number_of_moves(struct game_state start) {
-    // Clear any leftover queue data
+    // Clear leftover queue data
     while (!queue_is_empty()) {
-        dequeue(NULL);  // discard
+        dequeue(NULL);
     }
 
+    #define MAX_STATES (1UL << 28)  // 256 million entries
     bool *visited = calloc(MAX_STATES, sizeof(bool));
     int  *depth   = calloc(MAX_STATES, sizeof(int));
     if (!visited || !depth) {
@@ -49,12 +50,16 @@ int number_of_moves(struct game_state start) {
         return -1;
     }
 
+    start.num_steps = 0;  // Ensure clean serialization
     uint64_t start_serial = serialize(start);
     size_t start_idx = start_serial % MAX_STATES;
 
     enqueue(NULL, start);
     visited[start_idx] = true;
     depth[start_idx] = 0;
+
+    const int dr[4] = {-1, 1, 0, 0};
+    const int dc[4] = {0, 0, -1, 1};
 
     while (!queue_is_empty()) {
         struct game_state cur = dequeue(NULL);
@@ -68,28 +73,31 @@ int number_of_moves(struct game_state start) {
             return cur_depth;
         }
 
-        const int dr[4] = {-1, 1, 0, 0};
-        const int dc[4] = {0, 0, -1, 1};
-
         for (int dir = 0; dir < 4; dir++) {
             int r = cur.empty_row + dr[dir];
             int c = cur.empty_col + dc[dir];
-        
+
             if (r >= 0 && r < 4 && c >= 0 && c < 4) {
                 struct game_state next = cur;
-        
+
+                // Apply the move
                 next.tiles[cur.empty_row][cur.empty_col] = cur.tiles[r][c];
                 next.tiles[r][c] = 0;
                 next.empty_row = r;
                 next.empty_col = c;
-                next.num_steps = cur_depth + 1;
-        
+
+                // Step 1: Clear num_steps before serialization (so visited tracks only layout)
+                next.num_steps = 0;
                 uint64_t next_serial = serialize(next);
                 size_t next_idx = next_serial % MAX_STATES;
-        
+
+                // Step 2: Only enqueue if not visited
                 if (!visited[next_idx]) {
                     visited[next_idx] = true;
-                    depth[next_idx] = next.num_steps;
+                    depth[next_idx] = cur_depth + 1;
+
+                    // Step 3: Set num_steps for BFS tracking
+                    next.num_steps = cur_depth + 1;
                     enqueue(NULL, next);
                 }
             }
@@ -100,3 +108,4 @@ int number_of_moves(struct game_state start) {
     free(depth);
     return -1;
 }
+
