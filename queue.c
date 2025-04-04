@@ -2,6 +2,9 @@
 #include <stdbool.h>
 #include "queue.h"
 #include "tile_game.h"
+#include "linked_list.h"
+
+#define MAX_STATES (1UL << 28)  // 256 million entries, ~256MB
 
 static struct linked_list internal_list = { .head = NULL };
 
@@ -18,7 +21,7 @@ bool is_goal_state(struct game_state *state) {
 
 void enqueue(struct queue *q, struct game_state state) {
     (void)q;  // suppress unused parameter warning
-    size_t encoded = serialize(state);
+    uint64_t encoded = serialize(state);
     insert_at_tail(&internal_list, encoded);
 }
 
@@ -38,19 +41,26 @@ int number_of_moves(struct game_state start) {
         dequeue(NULL);  // discard
     }
 
-    bool *visited = calloc((1UL << 28), sizeof(bool));
-    int  *depth   = calloc((1UL << 28), sizeof(int));
-    if (!visited || !depth) return -1;
+    bool *visited = calloc(MAX_STATES, sizeof(bool));
+    int  *depth   = calloc(MAX_STATES, sizeof(int));
+    if (!visited || !depth) {
+        free(visited);
+        free(depth);
+        return -1;
+    }
 
-    size_t start_serial = serialize(start);
+    uint64_t start_serial = serialize(start);
+    size_t start_idx = start_serial % MAX_STATES;
+
     enqueue(NULL, start);
-    visited[start_serial] = true;
-    depth[start_serial] = 0;
+    visited[start_idx] = true;
+    depth[start_idx] = 0;
 
     while (!queue_is_empty()) {
         struct game_state cur = dequeue(NULL);
-        size_t cur_serial = serialize(cur);
-        int cur_depth = depth[cur_serial];
+        uint64_t cur_serial = serialize(cur);
+        size_t cur_idx = cur_serial % MAX_STATES;
+        int cur_depth = depth[cur_idx];
 
         if (is_goal_state(&cur)) {
             free(visited);
@@ -73,10 +83,12 @@ int number_of_moves(struct game_state start) {
                 next.empty_row = r;
                 next.empty_col = c;
 
-                size_t next_serial = serialize(next);
-                if (!visited[next_serial]) {
-                    visited[next_serial] = true;
-                    depth[next_serial] = cur_depth + 1;
+                uint64_t next_serial = serialize(next);
+                size_t next_idx = next_serial % MAX_STATES;
+
+                if (!visited[next_idx]) {
+                    visited[next_idx] = true;
+                    depth[next_idx] = cur_depth + 1;
                     enqueue(NULL, next);
                 }
             }
